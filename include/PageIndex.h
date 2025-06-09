@@ -97,9 +97,9 @@ const char MAIN_page[] PROGMEM = R"=====(
   <body>
     <div class="sidebar">
       <h2>Weigh My Bru</h2>
-      <a href="#" class="nav-link active" onclick="showPage('dashboard', this)">Dashboard</a>
+      <a href="/" class="nav-link active" id="dashboard-link">Dashboard</a>
       <a href="#" class="nav-link" onclick="showPage('settings', this)">Settings</a>
-      <a href="#" class="nav-link" onclick="showPage('calibration', this)">Calibration</a>
+      <a href="/calibration" class="nav-link" id="calibration-link">Calibration</a>
       <a href="#" class="nav-link" onclick="showPage('updates', this)">Updates</a>
     </div>
     <div class="main-content">
@@ -308,6 +308,174 @@ const char MAIN_page[] PROGMEM = R"=====(
   </body>
 </html>
 
+)=====";
+
+const char MAIN_calibration_page[] PROGMEM = R"=====(
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset=\"UTF-8\" />
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+    <title>Scale Calibration</title>
+    <style>
+      html {
+        font-family: Arial;
+        display: inline-block;
+        margin: 0px auto;
+        text-align: center;
+      }
+      body {
+        margin: 0;
+        display: flex;
+        min-height: 100vh;
+      }
+      .sidebar {
+        width: 240px;
+        background: #00878F;
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        padding-top: 30px;
+        min-height: 100vh;
+        position: fixed;
+        left: 0;
+        top: 0;
+        z-index: 2;
+      }
+      .sidebar h2 {
+        font-size: 1.6rem;
+        margin: 0 0 30px 30px;
+        font-family: consolas;
+        color: #fff;
+      }
+      .nav-link {
+        display: block;
+        color: #fff;
+        text-decoration: none;
+        padding: 15px 0 15px 30px;
+        width: 100%;
+        font-size: 1.1rem;
+        transition: background 0.2s;
+        box-sizing: border-box;
+        border-radius: 0 25px 25px 0;
+      }
+      .nav-link:hover, .nav-link.active {
+        background: #005e63;
+        box-shadow: none;
+      }
+      .main-content {
+        margin-left: 240px;
+        flex: 1;
+        padding: 30px 20px 20px 20px;
+        background: #f7f7f7;
+        min-height: 100vh;
+        text-align: left;
+      }
+      h1, h2 {
+        font-size: 1.5rem;
+        color: #00878F;
+        font-family: consolas;
+        margin-bottom: 20px;
+      }
+      button {
+        background: #00878F;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        padding: 10px 30px;
+        font-size: 1rem;
+        cursor: pointer;
+        margin-top: 10px;
+      }
+      button:hover {
+        background: #005e63;
+      }
+      input[type=number] {
+        padding: 8px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        font-size: 1rem;
+        margin-right: 10px;
+        width: 180px;
+      }
+      .status {
+        margin-top: 20px;
+        color: green;
+        font-size: 1.1rem;
+      }
+      ol {
+        margin-bottom: 30px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sidebar">
+      <h2>Weigh My Bru</h2>
+      <a href="/" class="nav-link">Dashboard</a>
+      <a href="#" class="nav-link">Settings</a>
+      <a href="/calibration" class="nav-link active">Calibration</a>
+      <a href="#" class="nav-link">Updates</a>
+    </div>
+    <div class="main-content">
+      <h2>Scale Calibration</h2>
+      <ol>
+        <li>Step 1: Remove all objects from the scale and click <b>Zero (Tare)</b>.</li>
+        <li>Step 2: Place a known weight on the scale, enter its value below, and click <b>Set Calibration</b>.</li>
+      </ol>
+      <button onclick="tare()">Zero (Tare)</button>
+      <br><br>
+      <input type="number" id="knownWeight" placeholder="Known weight in grams">
+      <button onclick="calibrate()">Set Calibration</button>
+      <br><br>
+      <input type="number" id="manualCF" placeholder="Manual calibration factor">
+      <button onclick="setManualCF()">Save Calibration Factor</button>
+      <br><br>
+      <div><b>Current Calibration Factor:</b> <span id="currentCF">Loading...</span></div>
+      <div class="status" id="status"></div>
+    </div>
+    <script>
+      function tare() {
+        document.getElementById('status').innerText = "Taring...";
+        fetch('/tare').then(r => r.text()).then(t => {
+          document.getElementById('status').innerText = t;
+        });
+      }
+      function calibrate() {
+        let weight = document.getElementById('knownWeight').value;
+        if (!weight) {
+          document.getElementById('status').innerText = "Please enter a known weight.";
+          return;
+        }
+        document.getElementById('status').innerText = "Calibrating, please wait...";
+        fetch('/calibrate?weight=' + weight)
+          .then(r => r.text())
+          .then(t => { document.getElementById('status').innerText = t; });
+      }
+      function fetchCurrentCF() {
+        fetch('/getcf')
+          .then(r => r.text())
+          .then(t => { document.getElementById('currentCF').innerText = t; });
+      }
+      // Fetch current calibration factor on page load
+      window.onload = function() { fetchCurrentCF(); };
+      function setManualCF() {
+        let cf = document.getElementById('manualCF').value;
+        if (!cf) {
+          document.getElementById('status').innerText = "Please enter a calibration factor.";
+          return;
+        }
+        document.getElementById('status').innerText = "Saving calibration factor...";
+        fetch('/setcf?cf=' + cf)
+          .then(r => r.text())
+          .then(t => {
+            document.getElementById('status').innerText = t;
+            fetchCurrentCF();
+          });
+      }
+    </script>
+  </body>
+</html>
 )=====";
 
 #endif

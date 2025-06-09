@@ -92,6 +92,66 @@ void loadcell_Calibration() {
   }
 }
 
+// Calibration handler function
+String runCalibration(float knownWeight) {
+  while (hx711Busy) { delay(1); }
+  hx711Busy = true;
+
+  // Wait up to 1 second for HX711 to become ready
+  unsigned long start = millis();
+  while (!LOADCELL_HX711.is_ready() && millis() - start < 1000) {
+    delay(1);
+  }
+  if (!LOADCELL_HX711.is_ready()) {
+    LOADCELL_HX711.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
+    delay(50);
+    start = millis();
+    while (!LOADCELL_HX711.is_ready() && millis() - start < 1000) {
+      delay(1);
+    }
+    if (!LOADCELL_HX711.is_ready()) {
+      hx711Busy = false;
+      return "Error: HX711 not ready.";
+    }
+  }
+
+  // Take 15 readings with the known weight on the scale
+  long sum = 0;
+  int n = 15;
+  for (int i = 0; i < n; i++) {
+    sum += LOADCELL_HX711.read();
+    delay(50);
+  }
+  long reading = sum / n;
+
+  // Get the tared (zero) offset from the HX711 object
+  long tareOffset = LOADCELL_HX711.get_offset();
+
+  long delta = reading - tareOffset;
+  if (knownWeight == 0 || delta == 0) {
+    hx711Busy = false;
+    return "Known weight and measured delta must be nonzero.";
+  }
+
+  // Print debug info
+  Serial.printf("Tare offset: %ld, Loaded reading: %ld, Delta: %ld, Known weight: %.2f\n", tareOffset, reading, delta, knownWeight);
+
+  // If delta is negative, invert calibration factor (for boards where ADC decreases with weight)
+  float calibrationFactor = (float)delta / knownWeight;
+  if (calibrationFactor < 0) {
+    calibrationFactor = -calibrationFactor;
+    Serial.println("Note: Calibration factor sign inverted due to negative delta.");
+  }
+  Serial.printf("Calibration factor: %.6f\n", calibrationFactor);
+
+  preferences.putFloat("CFVal", calibrationFactor);
+  LOAD_CALIBRATION_FACTOR = calibrationFactor;
+  LOADCELL_HX711.set_scale(LOAD_CALIBRATION_FACTOR);
+
+  hx711Busy = false;
+  return "Calibration complete. Factor: " + String(calibrationFactor, 6);
+}
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -131,6 +191,11 @@ void setup() {
     request->send(200, "text/html", MAIN_page);
   });
 
+  // Add a link to the calibration page on the main page if not already present
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
+    request->send(200, "text/html", MAIN_page);
+  });
+
   events.onConnect([](AsyncEventSourceClient * client) {
     if (client->lastId()) {
       Serial.printf("Client reconnected! Last message ID: %u\n", client->lastId());
@@ -150,6 +215,41 @@ void setup() {
     request->send(200, "text/plain", FIRMWARE_VERSION);
   });
 
+  server.on("/calibration", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/html", MAIN_calibration_page);
+  });
+
+  server.on("/calibrate", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (!request->hasParam("weight")) {
+      request->send(400, "text/plain", "Missing weight parameter.");
+      return;
+    }
+    float knownWeight = request->getParam("weight")->value().toFloat();
+    if (knownWeight <= 0) {
+      request->send(400, "text/plain", "Invalid weight value.");
+      return;
+    }
+    String result = runCalibration(knownWeight);
+    request->send(200, "text/plain", result);
+  });
+
+  server.on("/setcf", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (!request->hasParam("cf")) {
+      request->send(400, "text/plain", "Missing calibration factor parameter.");
+      return;
+    }
+    float cf = request->getParam("cf")->value().toFloat();
+    preferences.putFloat("CFVal", cf);
+    LOAD_CALIBRATION_FACTOR = cf;
+    LOADCELL_HX711.set_scale(LOAD_CALIBRATION_FACTOR);
+    request->send(200, "text/plain", "Calibration factor saved: " + String(cf, 6));
+  });
+
+  server.on("/getcf", HTTP_GET, [](AsyncWebServerRequest *request) {
+    float cf = preferences.getFloat("CFVal", 0);
+    request->send(200, "text/plain", String(cf, 6));
+  });
+
   server.begin();
 
   Serial.println("Server started. Scale is ready to use.");
@@ -167,8 +267,11 @@ void loop() {
         JSON_All_Data["weight_In_g"] = weight_In_g;
         String JSON_All_Data_Send = JSON.stringify(JSON_All_Data);
 
-        events.send("ping", NULL, millis());
-        events.send(JSON_All_Data_Send.c_str(), "allDataJSON", millis());
+        // Only send events if the queue is not full
+        if (events.count() < 10) {
+          events.send("ping", NULL, millis());
+          events.send(JSON_All_Data_Send.c_str(), "allDataJSON", millis());
+        }
 
         last_weight_In_g = weight_In_g;
         lastTime = millis();
