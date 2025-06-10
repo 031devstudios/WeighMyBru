@@ -93,10 +93,10 @@ const char MAIN_page[] PROGMEM = R"=====(
   <body>
     <div class="sidebar">
       <h2>Weigh My Bru</h2>
-      <a href="/" class="nav-link active" id="dashboard-link">Dashboard</a>
-      <a href="#" class="nav-link" onclick="showPage('settings', this)">Settings</a>
+      <a href="/" class="nav-link" id="dashboard-link">Dashboard</a>
+      <a href="/settings" class="nav-link" id="settings-link">Settings</a>
       <a href="/calibration" class="nav-link" id="calibration-link">Calibration</a>
-      <a href="#" class="nav-link" onclick="showPage('updates', this)">Updates</a>
+      <a href="/updates" class="nav-link" id="updates-link">Updates</a>
     </div>
     <div class="main-content">
       <div id="dashboard" class="page-section">
@@ -489,6 +489,7 @@ const char MAIN_calibration_page[] PROGMEM = R"=====(
       <div style="margin-bottom: 30px; text-align:left; max-width:500px; margin-left:auto; margin-right:auto;">
         <div>Remove all objects from the scale and click <b>Zero (Tare)</b>.</div>
         <div style="margin-top:10px;">Place a known weight on the scale, enter its value below, and click <b>Set Calibration</b>.</div>
+        <div style="margin-top:20px;">Once calibration has completed, copy and paste the new calibration factor into the field and click <b>Save Calibration Factor</b>.</div>
       </div>
       <button onclick="tare()">Zero (Tare)</button>
       <br><br>
@@ -582,6 +583,95 @@ const char MAIN_calibration_page[] PROGMEM = R"=====(
 
       // Fetch current calibration factor on page load and when calibration page is shown
       window.onload = function() { fetchCurrentCF(); };
+    </script>
+  </body>
+</html>
+)=====";
+
+const char MAIN_updates_page[] PROGMEM = R"=====(
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset=\"UTF-8\" />
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+    <title>Updates</title>
+    <style>
+      html {
+        font-family: Arial;
+        display: inline-block;
+        margin: 0px auto;
+        text-align: center;
+      }
+      body {
+        margin: 0;
+        background: #f7f7f7;
+      }
+      .sidebar {
+        width: 240px;
+        background: #00878F;
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        padding-top: 30px;
+        min-height: 100vh;
+        position: fixed;
+        left: 0;
+        top: 0;
+        z-index: 2;
+      }
+      .sidebar h2 {
+        font-size: 1.6rem;
+        margin: 0 0 30px 30px;
+        font-family: consolas;
+        color: #fff;
+      }
+      .nav-link {
+        display: block;
+        color: #fff;
+        text-decoration: none;
+        padding: 15px 0 15px 30px;
+        width: 100%;
+        font-size: 1.1rem;
+        transition: background 0.2s;
+        box-sizing: border-box;
+        border-radius: 0 25px 25px 0;
+      }
+      .nav-link:hover, .nav-link.active {
+        background: #005e63;
+        box-shadow: none;
+      }
+      .main-content {
+        margin-left: 240px;
+        flex: 1;
+        padding: 30px 20px 20px 20px;
+        background: #f7f7f7;
+        min-height: 100vh;
+      }
+      h1 {
+        color: #00878F;
+        font-family: consolas;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sidebar">
+      <h2>Weigh My Bru</h2>
+      <a href="/" class="nav-link" id="dashboard-link">Dashboard</a>
+      <a href="/settings" class="nav-link" id="settings-link">Settings</a>
+      <a href="/calibration" class="nav-link" id="calibration-link">Calibration</a>
+      <a href="/updates" class="nav-link active" id="updates-link">Updates</a>
+    </div>
+    <div class="main-content">
+      <h1>Updates</h1>
+      <p>Current Firmware Version: <span id="fwver">Loading...</span></p>
+    </div>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        fetch('/fwver')
+          .then(r => r.text())
+          .then(ver => { document.getElementById('fwver').innerText = ver; });
+      });
     </script>
   </body>
 </html>

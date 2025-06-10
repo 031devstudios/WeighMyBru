@@ -5,11 +5,12 @@
 #include <Arduino_JSON.h>
 #include "PageIndex.h"
 
+
 #define LOADCELL_DOUT_PIN 12
 #define LOADCELL_SCK_PIN 11
 
 #define weight_of_object_for_calibration 111
-#define FIRMWARE_VERSION "1.0.0"
+#define FIRMWARE_VERSION "1.0.3"
 
 const char* ssid = "Robb_Ext";
 const char* password = "0004ed931192";
@@ -215,17 +216,19 @@ void setup() {
     request->send(200, "text/plain", FIRMWARE_VERSION);
   });
 
-  server.on("/calibration", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/calibrate", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (request->hasParam("weight")) {
-      float knownWeight = request->getParam("weight")->value().toFloat();
-      if (knownWeight <= 0) {
-        request->send(400, "text/plain", "Invalid weight value.");
-        return;
-      }
-      String result = runCalibration(knownWeight);
-      request->send(200, "text/plain", result);
+        float knownWeight = request->getParam("weight")->value().toFloat();
+        if (knownWeight <= 0) {
+            request->send(400, "text/plain", "Invalid weight value.");
+            return;
+        }
+        // Run calibration logic
+        String calibrationResult = runCalibration(knownWeight); // This returns a String message
+
+        request->send(200, "text/plain", calibrationResult);
     } else {
-      request->send(200, "text/html", MAIN_calibration_page);
+        request->send(400, "text/plain", "Missing weight parameter.");
     }
   });
 
@@ -281,6 +284,14 @@ void setup() {
     request->send(200, "text/plain", units);
   });
 
+  server.on("/calibration", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/html", MAIN_calibration_page);
+  });
+
+  server.on("/updates", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/html", MAIN_updates_page);
+  });
+
   server.begin();
 
   Serial.println("Server started. Scale is ready to use.");
@@ -290,20 +301,18 @@ void loop() {
   if (LOADCELL_HX711.wait_ready_timeout(100)) {
     if (!hx711Busy) {
       hx711Busy = true;
-      weight_In_g = LOADCELL_HX711.get_units(2); // get_units returns float
+      weight_In_g = LOADCELL_HX711.get_units(2);
       weight_In_oz = weight_In_g / 28.3495;
       hx711Busy = false;
 
-      // Only send if value changed (to 4 decimals)
       float weight_rounded = roundf(weight_In_g * 10000.0f) / 10000.0f;
       float last_weight_rounded = roundf(last_weight_In_g * 10000.0f) / 10000.0f;
       if ((millis() - lastTime) > timerDelay && weight_rounded != last_weight_rounded) {
-        JSON_All_Data["weight_In_g"] = String(weight_rounded, 4); // send as string with 4 decimals
+        JSON_All_Data["weight_In_g"] = String(weight_rounded, 4);
         String JSON_All_Data_Send = JSON.stringify(JSON_All_Data);
 
-        // Only send events if the queue is not full
-        if (events.count() < 10) {
-          events.send("ping", NULL, millis());
+        // Only send events if there are connected clients
+        if (events.count() > 0) {
           events.send(JSON_All_Data_Send.c_str(), "allDataJSON", millis());
         }
 
