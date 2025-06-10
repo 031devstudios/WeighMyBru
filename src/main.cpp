@@ -19,8 +19,8 @@ unsigned long timerDelay = 50;
 
 float LOAD_CALIBRATION_FACTOR;
 
-int weight_In_g;
-int last_weight_In_g;
+float weight_In_g = 0.0;
+float last_weight_In_g = 0.0;
 float weight_In_oz;
 
 HX711 LOADCELL_HX711;
@@ -158,10 +158,10 @@ void setup() {
   Serial.println("Start Setup...");
 
   preferences.begin("CF", false);
+  // Always load calibration factor from preferences at boot
   LOAD_CALIBRATION_FACTOR = preferences.getFloat("CFVal", 0);
-
-  Serial.print("Calibration factor: ");
-  Serial.println(LOAD_CALIBRATION_FACTOR);
+  Serial.print("Calibration factor loaded from EEPROM: ");
+  Serial.println(LOAD_CALIBRATION_FACTOR, 6);
 
   LOADCELL_HX711.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
   LOADCELL_HX711.set_scale(LOAD_CALIBRATION_FACTOR);
@@ -216,38 +216,69 @@ void setup() {
   });
 
   server.on("/calibration", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "text/html", MAIN_calibration_page);
-  });
-
-  server.on("/calibrate", HTTP_GET, [](AsyncWebServerRequest *request) {
-    if (!request->hasParam("weight")) {
-      request->send(400, "text/plain", "Missing weight parameter.");
-      return;
+    if (request->hasParam("weight")) {
+      float knownWeight = request->getParam("weight")->value().toFloat();
+      if (knownWeight <= 0) {
+        request->send(400, "text/plain", "Invalid weight value.");
+        return;
+      }
+      String result = runCalibration(knownWeight);
+      request->send(200, "text/plain", result);
+    } else {
+      request->send(200, "text/html", MAIN_calibration_page);
     }
-    float knownWeight = request->getParam("weight")->value().toFloat();
-    if (knownWeight <= 0) {
-      request->send(400, "text/plain", "Invalid weight value.");
-      return;
-    }
-    String result = runCalibration(knownWeight);
-    request->send(200, "text/plain", result);
   });
 
   server.on("/setcf", HTTP_GET, [](AsyncWebServerRequest *request) {
-    if (!request->hasParam("cf")) {
-      request->send(400, "text/plain", "Missing calibration factor parameter.");
-      return;
+    if (request->hasParam("cf")) {
+        float cf = request->getParam("cf")->value().toFloat();
+
+        preferences.begin("CF", false); // Use "CF" namespace
+        preferences.putFloat("CFVal", cf); // Use "CFVal" key
+        preferences.end();
+
+        // Update global variable and HX711 scale immediately!
+        LOAD_CALIBRATION_FACTOR = cf;
+        LOADCELL_HX711.set_scale(LOAD_CALIBRATION_FACTOR);
+
+        Serial.print("Calibration factor saved to EEPROM and applied: ");
+        Serial.println(cf, 6);
+
+        request->send(200, "text/plain", "Calibration factor saved: " + String(cf, 6));
+    } else {
+        request->send(400, "text/plain", "Missing calibration factor");
     }
-    float cf = request->getParam("cf")->value().toFloat();
-    preferences.putFloat("CFVal", cf);
-    LOAD_CALIBRATION_FACTOR = cf;
-    LOADCELL_HX711.set_scale(LOAD_CALIBRATION_FACTOR);
-    request->send(200, "text/plain", "Calibration factor saved: " + String(cf, 6));
-  });
+});
 
   server.on("/getcf", HTTP_GET, [](AsyncWebServerRequest *request) {
-    float cf = preferences.getFloat("CFVal", 0);
+    preferences.begin("CF", true); // Use "CF" namespace
+    float cf = preferences.getFloat("CFVal", 0.0f); // Use "CFVal" key
+    preferences.end();
+
+    Serial.print("Calibration factor read from EEPROM: ");
+    Serial.println(cf, 6);
+
     request->send(200, "text/plain", String(cf, 6));
+  });
+
+  // Add endpoints for units persistence
+  server.on("/setunits", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (!request->hasParam("units")) {
+      request->send(400, "text/plain", "Missing units parameter.");
+      return;
+    }
+    String units = request->getParam("units")->value();
+    preferences.begin("SETTINGS", false);
+    preferences.putString("units", units);
+    preferences.end();
+    request->send(200, "text/plain", "Units saved: " + units);
+  });
+
+  server.on("/getunits", HTTP_GET, [](AsyncWebServerRequest *request) {
+    preferences.begin("SETTINGS", true);
+    String units = preferences.getString("units", "g");
+    preferences.end();
+    request->send(200, "text/plain", units);
   });
 
   server.begin();
@@ -259,12 +290,15 @@ void loop() {
   if (LOADCELL_HX711.wait_ready_timeout(100)) {
     if (!hx711Busy) {
       hx711Busy = true;
-      weight_In_g = LOADCELL_HX711.get_units(2);
-      weight_In_oz = (float)weight_In_g / 28.3495;
+      weight_In_g = LOADCELL_HX711.get_units(2); // get_units returns float
+      weight_In_oz = weight_In_g / 28.3495;
       hx711Busy = false;
 
-      if ((millis() - lastTime) > timerDelay && weight_In_g != last_weight_In_g) {
-        JSON_All_Data["weight_In_g"] = weight_In_g;
+      // Only send if value changed (to 4 decimals)
+      float weight_rounded = roundf(weight_In_g * 10000.0f) / 10000.0f;
+      float last_weight_rounded = roundf(last_weight_In_g * 10000.0f) / 10000.0f;
+      if ((millis() - lastTime) > timerDelay && weight_rounded != last_weight_rounded) {
+        JSON_All_Data["weight_In_g"] = String(weight_rounded, 4); // send as string with 4 decimals
         String JSON_All_Data_Send = JSON.stringify(JSON_All_Data);
 
         // Only send events if the queue is not full
