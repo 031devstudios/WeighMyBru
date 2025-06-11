@@ -188,8 +188,12 @@ void setup() {
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
 
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
-    request->send(200, "text/html", MAIN_page);
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String page = MAIN_page;
+    page.replace("class=\"nav-link active\" id=\"settings-link\"", "class=\"nav-link\" id=\"settings-link\"");
+    page.replace("id=\"dashboard\" class=\"page-section\" style=\"display:\"", "id=\"dashboard\" class=\"page-section\" style=\"display:\"");
+    page.replace("id=\"settings\" class=\"page-section\" style=\"display:none\"", "id=\"settings\" class=\"page-section\" style=\"display:none\"");
+    request->send(200, "text/html", page);
   });
 
   // Add a link to the calibration page on the main page if not already present
@@ -290,6 +294,15 @@ void setup() {
 
   server.on("/updates", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(200, "text/html", MAIN_updates_page);
+  });
+
+  server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String page = MAIN_page;
+    page.replace("class=\"nav-link active\" id=\"dashboard-link\"", "class=\"nav-link\" id=\"dashboard-link\"");
+    page.replace("class=\"nav-link\" id=\"settings-link\"", "class=\"nav-link active\" id=\"settings-link\"");
+    page.replace("id=\"dashboard\" class=\"page-section\" style=\"display:\"", "id=\"dashboard\" class=\"page-section\" style=\"display:none\"");
+    page.replace("id=\"settings\" class=\"page-section\" style=\"display:none\"", "id=\"settings\" class=\"page-section\" style=\"display:\"");
+    request->send(200, "text/html", page);
   });
 
   server.begin();

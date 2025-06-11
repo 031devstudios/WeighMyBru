@@ -94,7 +94,7 @@ const char MAIN_page[] PROGMEM = R"=====(
     <div class="sidebar">
       <h2>Weigh My Bru</h2>
       <a href="/" class="nav-link" id="dashboard-link">Dashboard</a>
-      <a href="/settings" class="nav-link" id="settings-link">Settings</a>
+      <a href="/settings" class="nav-link active" id="settings-link">Settings</a>
       <a href="/calibration" class="nav-link" id="calibration-link">Calibration</a>
       <a href="/updates" class="nav-link" id="updates-link">Updates</a>
     </div>
@@ -116,7 +116,7 @@ const char MAIN_page[] PROGMEM = R"=====(
         </select>
         <br><br>
         <label for="units">Display units:</label>
-        <select name="units" id="units">
+        <select name="units" id="units" onchange="onUnitsChange()">
           <option value="g">g</option>
           <option value="oz">oz</option>
           <option value="kg">kg</option>
@@ -351,12 +351,21 @@ const char MAIN_page[] PROGMEM = R"=====(
         }
       }
 
-      // On load, set theme and resolution from localStorage
+      // On load, set theme and resolution from localStorage and show correct section
       window.addEventListener('DOMContentLoaded', function() {
         var theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
         setTheme(theme);
         var select = document.getElementById('themeSelect');
         if (select) select.value = theme;
+        // Only set up Dashboard section by default
+        var dashboardSection = document.getElementById('dashboard');
+        var settingsSection = document.getElementById('settings');
+        dashboardSection.style.display = '';
+        settingsSection.style.display = 'none';
+        // Set up Dashboard as active by default
+        document.getElementById('dashboard-link').classList.add('active');
+        document.getElementById('settings-link').classList.remove('active');
+        // Set up settings fields from localStorage
         var res = localStorage.getItem('resolution') || '0';
         displayResolution = parseInt(res);
         var resSelect = document.getElementById('resolutionSelect');
@@ -365,11 +374,56 @@ const char MAIN_page[] PROGMEM = R"=====(
           Convert.lastUnit = undefined;
           updateWeightDisplay();
         });
+        setMaxCapacityHandler();
         setTimeout(function() {
           if (document.getElementById('calibration') && document.getElementById('calibration').style.display !== 'none') {
             fetchCurrentCF();
           }
         }, 100);
+      });
+
+      // SPA navigation: if user clicks Settings, show settings section and update fields
+      document.getElementById('settings-link').addEventListener('click', function(e) {
+        e.preventDefault();
+        document.getElementById('dashboard').style.display = 'none';
+        document.getElementById('settings').style.display = '';
+        this.classList.add('active');
+        document.getElementById('dashboard-link').classList.remove('active');
+        // Restore settings fields from localStorage
+        var res = localStorage.getItem('resolution') || '0';
+        displayResolution = parseInt(res);
+        var resSelect = document.getElementById('resolutionSelect');
+        if (resSelect) resSelect.value = res;
+        loadUnitsAndSetSelector(function() {
+          Convert.lastUnit = undefined;
+          updateWeightDisplay();
+        });
+        setMaxCapacityHandler();
+      });
+
+      // SPA navigation: if user clicks Dashboard, show dashboard section
+      document.getElementById('dashboard-link').addEventListener('click', function(e) {
+        e.preventDefault();
+        document.getElementById('dashboard').style.display = '';
+        document.getElementById('settings').style.display = 'none';
+        this.classList.add('active');
+        document.getElementById('settings-link').classList.remove('active');
+        updateWeightDisplay();
+      });
+
+      // On load, show the correct section based on which nav-link is active
+      window.addEventListener('DOMContentLoaded', function() {
+        var dashboardLink = document.getElementById('dashboard-link');
+        var settingsLink = document.getElementById('settings-link');
+        var dashboardSection = document.getElementById('dashboard');
+        var settingsSection = document.getElementById('settings');
+        if (dashboardLink && dashboardLink.classList.contains('active')) {
+          dashboardSection.style.display = '';
+          settingsSection.style.display = 'none';
+        } else if (settingsLink && settingsLink.classList.contains('active')) {
+          dashboardSection.style.display = 'none';
+          settingsSection.style.display = '';
+        }
       });
     </script>
   </body>
@@ -523,7 +577,7 @@ const char MAIN_calibration_page[] PROGMEM = R"=====(
       function tare() {
         var status = document.getElementById('status');
         if (status) status.innerText = "Taring...";
-        fetch('/tare').then(r => r.text()).then(t => {
+        fetch('/tare').then r => r.text()).then(t => {
           if (status) status.innerText = t;
         });
       }
