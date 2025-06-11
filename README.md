@@ -5,4 +5,5 @@ The smart espresso scale you've been looking for!
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg?style=for-the-badge)](LICENSE)
 
 This project is a headless scale at the moment with a webserver hosted on the ESP32-S3.
+I've currently hacked a kitchen scale, but will eventually add the 3D printed housing with components.
 <img src="docs/assets/dashboard.png" alt="WeighMyBru Dashboard" width="500" />
