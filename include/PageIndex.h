@@ -53,20 +53,36 @@ const char MAIN_page[] PROGMEM = R"=====(
         border-radius: 0 25px 25px 0;
       }
       .nav-link:hover, .nav-link.active {
-        background: #005e63;
+        background: rgb(58, 58, 58);
         box-shadow: none;
+        transition: all 0.3s ease;
+        border-radius: 10px
       }
       .main-content {
         margin-left: 240px;
         flex: 1;
         padding: 30px 20px 20px 20px;
-        background: #f7f7f7;
+        background: rgba(58, 58, 58);
         min-height: 100vh;
+      }
+      .container {
+        display: block;
+        position: fixed; /* or absolute */
+        top: 5%;
+        left: 50%;
+        width: 400px;
+        height: 250px;
+        justify-content: center;
+        background-color:rgb(160, 160, 160);
+        border-radius: 18px;
+        padding: 20px 60px;
+        box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
       }
       h1 {
         font-size: 1.5rem;
         color: #00878F;
         font-family: consolas;
+        text-shadow: 1px 1px 0.5px rgba(0, 0, 0, 1);
       }
       /* Existing styles for buttons, etc. */
       button {
@@ -94,14 +110,15 @@ const char MAIN_page[] PROGMEM = R"=====(
     <div class="sidebar">
       <h2>Weigh My Bru</h2>
       <a href="/" class="nav-link" id="dashboard-link">Dashboard</a>
-      <a href="/settings" class="nav-link active" id="settings-link">Settings</a>
+      <a href="/settings" class="nav-link active" id="settings-link" onclick="return forceSettingsReload(event)">Settings</a>
       <a href="/calibration" class="nav-link" id="calibration-link">Calibration</a>
       <a href="/updates" class="nav-link" id="updates-link">Updates</a>
     </div>
     <div class="main-content">
+    <div class="container">
       <div id="dashboard" class="page-section">
         <h1>Dashboard</h1>
-        <div id="weightDisplay" style="font-size: 2.5rem; color: #00878F; margin: 40px 0; font-family: consolas;"></div>
+        <div id="weightDisplay" style="font-size: 2.5rem; color: #00878F; margin: 40px 0; font-family: consolas;text-shadow: 1px 1px 0.5px rgba(0, 0, 0, 1);"></div>
         <button type="button" onclick="tareScale()">TARE</button>
         <br /><br />
         <p style="font-size: 20px; color: #800000" id="conv"></p>
@@ -131,6 +148,7 @@ const char MAIN_page[] PROGMEM = R"=====(
         <p>Current Firmware Version: <span id="fwver">Loading...</span></p>
         <p>Updates page content goes here.</p>
       </div>
+    </div>
     </div>
     <script>
       function setUnitsSelector(units) {
@@ -365,16 +383,35 @@ const char MAIN_page[] PROGMEM = R"=====(
         // Set up Dashboard as active by default
         document.getElementById('dashboard-link').classList.add('active');
         document.getElementById('settings-link').classList.remove('active');
-        // Set up settings fields from localStorage
-        var res = localStorage.getItem('resolution') || '0';
-        displayResolution = parseInt(res);
-        var resSelect = document.getElementById('resolutionSelect');
-        if (resSelect) resSelect.value = res;
-        loadUnitsAndSetSelector(function() {
-          Convert.lastUnit = undefined;
-          updateWeightDisplay();
-        });
-        setMaxCapacityHandler();
+        // Always fetch settings from backend on load if on /settings
+        if (window.location.pathname === '/settings') {
+          fetchSettingsFromBackend(function() {
+            var res = localStorage.getItem('resolution') || '0';
+            displayResolution = parseInt(res);
+            var resSelect = document.getElementById('resolutionSelect');
+            if (resSelect) resSelect.value = res;
+            loadUnitsAndSetSelector(function() {
+              Convert.lastUnit = undefined;
+              updateWeightDisplay();
+            });
+            setMaxCapacityHandler();
+            settingsSection.style.display = '';
+            dashboardSection.style.display = 'none';
+            document.getElementById('settings-link').classList.add('active');
+            document.getElementById('dashboard-link').classList.remove('active');
+          });
+        } else {
+          // Set up settings fields from localStorage
+          var res = localStorage.getItem('resolution') || '0';
+          displayResolution = parseInt(res);
+          var resSelect = document.getElementById('resolutionSelect');
+          if (resSelect) resSelect.value = res;
+          loadUnitsAndSetSelector(function() {
+            Convert.lastUnit = undefined;
+            updateWeightDisplay();
+          });
+          setMaxCapacityHandler();
+        }
         setTimeout(function() {
           if (document.getElementById('calibration') && document.getElementById('calibration').style.display !== 'none') {
             fetchCurrentCF();
@@ -389,16 +426,18 @@ const char MAIN_page[] PROGMEM = R"=====(
         document.getElementById('settings').style.display = '';
         this.classList.add('active');
         document.getElementById('dashboard-link').classList.remove('active');
-        // Restore settings fields from localStorage
-        var res = localStorage.getItem('resolution') || '0';
-        displayResolution = parseInt(res);
-        var resSelect = document.getElementById('resolutionSelect');
-        if (resSelect) resSelect.value = res;
-        loadUnitsAndSetSelector(function() {
-          Convert.lastUnit = undefined;
-          updateWeightDisplay();
+        // Always fetch settings from backend
+        fetchSettingsFromBackend(function() {
+          var res = localStorage.getItem('resolution') || '0';
+          displayResolution = parseInt(res);
+          var resSelect = document.getElementById('resolutionSelect');
+          if (resSelect) resSelect.value = res;
+          loadUnitsAndSetSelector(function() {
+            Convert.lastUnit = undefined;
+            updateWeightDisplay();
+          });
+          setMaxCapacityHandler();
         });
-        setMaxCapacityHandler();
       });
 
       // SPA navigation: if user clicks Dashboard, show dashboard section
@@ -425,6 +464,43 @@ const char MAIN_page[] PROGMEM = R"=====(
           settingsSection.style.display = '';
         }
       });
+
+      function forceSettingsReload(e) {
+        if (window.location.pathname !== '/settings') {
+          // Always do a full page load to /settings
+          window.location.href = '/settings';
+          e.preventDefault();
+          return false;
+        }
+        // If already on /settings, allow default
+        return true;
+      }
+
+      // Always fetch settings from backend when showing settings page
+      function fetchSettingsFromBackend(cb) {
+        fetch('/settings?_=' + Date.now())
+          .then(r => r.json())
+          .then(function(data) {
+            if (data) {
+              if (data.resolution !== undefined) {
+                localStorage.setItem('resolution', data.resolution);
+                var resSelect = document.getElementById('resolutionSelect');
+                if (resSelect) resSelect.value = data.resolution;
+              }
+              if (data.units) {
+                localStorage.setItem('units', data.units);
+                setUnitsSelector(data.units);
+              }
+              if (data.maxCapacity) {
+                localStorage.setItem('maxCapacity', data.maxCapacity);
+                var maxInput = document.getElementById('maxCapacity');
+                if (maxInput) maxInput.value = data.maxCapacity;
+              }
+            }
+            if (cb) cb();
+          })
+          .catch(function() { if (cb) cb(); });
+      }
     </script>
   </body>
 </html>
@@ -482,22 +558,31 @@ const char MAIN_calibration_page[] PROGMEM = R"=====(
         border-radius: 0 25px 25px 0;
       }
       .nav-link:hover, .nav-link.active {
-        background: #005e63;
+        background: rgb(58, 58, 58);
         box-shadow: none;
+        transition: all 0.3s ease;
+        border-radius: 10px
       }
       .main-content {
         margin-left: 240px;
         flex: 1;
         padding: 30px 20px 20px 20px;
-        background: #f7f7f7;
+        background: rgba(58, 58, 58);
         min-height: 100vh;
-        text-align: left;
+      }
+      .container {
+        display: inline-block;              /* or omit entirely since it's default */
+        background-color:rgb(160, 160, 160);
+        border-radius: 18px;
+        padding: 20px 60px;
+        box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
       }
       h1, h2 {
         font-size: 1.5rem;
         color: #00878F;
         font-family: consolas;
         margin-bottom: 20px;
+        text-shadow: 1px 1px 0.5px rgba(0, 0, 0, 1);
       }
       button {
         background: #00878F;
@@ -539,23 +624,30 @@ const char MAIN_calibration_page[] PROGMEM = R"=====(
       <a href="/updates" class="nav-link" id="updates-link">Updates</a>
     </div>
     <div class="main-content">
+    <div class="container">
       <h2>Scale Calibration</h2>
       <div style="margin-bottom: 30px; text-align:left; max-width:500px; margin-left:auto; margin-right:auto;">
         <div>Remove all objects from the scale and click <b>Zero (Tare)</b>.</div>
-        <div style="margin-top:10px;">Place a known weight on the scale, enter its value below, and click <b>Set Calibration</b>.</div>
-        <div style="margin-top:20px;">Once calibration has completed, copy and paste the new calibration factor into the field and click <b>Save Calibration Factor</b>.</div>
+        <div style="margin-top:10px;">Place a known weight on the scale, enter its value in <b>Known weight in grams</b> field, and click <b>Set Calibration</b>.</div>
+        <div style="margin-top:20px;">Once calibration has completed, copy and paste the <b>Current Calibration Factor</b> into the <b>Manual Calibration Factor</b> field and click <b>Save Calibration Factor</b>.</div>
       </div>
+      <br><br>
+      <br><br>
+    <div class="container">
       <button onclick="tare()">Zero (Tare)</button>
       <br><br>
-      <input type="number" id="knownWeight" placeholder="Known weight in grams">
+      <input type="number" id="knownWeight" placeholder="Known weight (grams)" style="width: 200px;">
+      <br><br>
       <button onclick="calibrate()">Set Calibration</button>
       <br><br>
-      <input type="number" id="manualCF" placeholder="Manual calibration factor">
+      <input type="number" id="manualCF" placeholder="Manual calibration factor" style="width: 200px;">
+      <br><br>
       <button onclick="setManualCF()">Save Calibration Factor</button>
       <br><br>
       <div><b>Current Calibration Factor:</b> <span id="currentCF">Loading...</span></div>
       <div class="status" id="status"></div>
       <script>
+    </div>
         // Fetch and display calibration factor immediately on page load
         fetch('/getcf?_=' + Date.now())
           .then(r => r.text())
@@ -572,6 +664,7 @@ const char MAIN_calibration_page[] PROGMEM = R"=====(
             if (cfSpan) cfSpan.innerText = 'Unavailable';
           });
       </script>
+      </div>
     </div>
     <script>
       function tare() {
@@ -658,7 +751,7 @@ const char MAIN_updates_page[] PROGMEM = R"=====(
       }
       body {
         margin: 0;
-        background: #f7f7f7;
+        background:rgb(209, 209, 209);
       }
       .sidebar {
         width: 240px;
@@ -692,19 +785,28 @@ const char MAIN_updates_page[] PROGMEM = R"=====(
         border-radius: 0 25px 25px 0;
       }
       .nav-link:hover, .nav-link.active {
-        background: #005e63;
+        background: rgb(58, 58, 58);
         box-shadow: none;
+        transition: all 0.3s ease;
       }
       .main-content {
         margin-left: 240px;
         flex: 1;
         padding: 30px 20px 20px 20px;
-        background: #f7f7f7;
+        background:rgb(58, 58, 58);
         min-height: 100vh;
+      }
+      .container {
+        display: inline-block;
+        background-color:rgb(160, 160, 160);
+        border-radius: 12px;
+        padding: 25px 60px;
+        box-shadow: 0 0 12px rgba(0, 0, 0, 0.5);
       }
       h1 {
         color: #00878F;
         font-family: consolas;
+        text-shadow: 1px 1px 0.5px rgba(0, 0, 0, 1);
       }
     </style>
   </head>
@@ -717,9 +819,11 @@ const char MAIN_updates_page[] PROGMEM = R"=====(
       <a href="/updates" class="nav-link active" id="updates-link">Updates</a>
     </div>
     <div class="main-content">
+    <div class="container">
       <h1>Updates</h1>
       <p>Current Firmware Version: <span id="fwver">Loading...</span></p>
     </div>
+  </div>
     <script>
       document.addEventListener('DOMContentLoaded', function() {
         fetch('/fwver')
