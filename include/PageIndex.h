@@ -533,10 +533,10 @@ const char MAIN_calibration_page[] PROGMEM = R"=====(
   <body>
     <div class="sidebar">
       <h2>Weigh My Bru</h2>
-      <a href="/" class="nav-link">Dashboard</a>
-      <a href="#" class="nav-link">Settings</a>
-      <a href="/calibration" class="nav-link active">Calibration</a>
-      <a href="#" class="nav-link">Updates</a>
+      <a href="/" class="nav-link" id="dashboard-link">Dashboard</a>
+      <a href="/settings" class="nav-link" id="settings-link">Settings</a>
+      <a href="/calibration" class="nav-link active" id="calibration-link">Calibration</a>
+      <a href="/updates" class="nav-link" id="updates-link">Updates</a>
     </div>
     <div class="main-content">
       <h2>Scale Calibration</h2>
