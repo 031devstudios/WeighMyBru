@@ -10,7 +10,7 @@
 #define LOADCELL_SCK_PIN 11
 
 #define weight_of_object_for_calibration 111
-#define FIRMWARE_VERSION "1.0.3"
+#define FIRMWARE_VERSION "1.0.0"
 
 const char* ssid = "Robb_Ext";
 const char* password = "0004ed931192";
