@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.1/dist/tailwind.min.css" rel="stylesheet">
+  <meta charset="UTF-8">
+  <title>WeighMyBru UI</title>
+  <style>
+    body { font-family: Arial; padding: 2rem; }
+    h2 { font-size: 2rem; }
+  </style>
+</head>
+<body>
+  <h1>Dashboard</h1>
+  <nav>
+    <a href="/calibration.html">Calibration</a> |
+    <a href="/settings.html">Settings</a> |
+    <a href="/updates.html">Updates</a>
+  </nav>
+  <h2>Weight: <span id="weight">0.0</span> g</h2>
+  <button onclick="tareScale()">Tare</button>
+
+  <script>
+    let decimalPlaces = 1;
+
+    function tareScale() {
+      fetch('/api/tare', { method: 'POST' })
+        .then(response => response.text())
+        .then(data => alert(data))
+        .catch(err => alert("Tare failed!"));
+    }
+
+    function updateWeight() {
+      fetch('/api/weight')
+        .then(response => response.text())
+        .then(data => {
+          let num = parseFloat(data);
+          if (isNaN(num)) num = 0;
+          let dp = parseInt(decimalPlaces); // Always parse as int
+          let formatted;
+          if (dp === 0) {
+            formatted = Math.round(num).toString();
+          } else {
+            formatted = num.toFixed(dp);
+          }
+          document.getElementById('weight').innerText = formatted;
+        })
+        .catch(err => console.error("Fetch error:", err));
+    }
+
+    setInterval(updateWeight, 50);
+    updateWeight(); // Run immediately
+
+    // Fetch decimal setting and update decimalPlaces when it arrives, then update display
+    fetch('/api/decimal-setting')
+      .then(response => response.json())
+      .then(data => {
+        decimalPlaces = (data.decimals !== undefined && data.decimals !== null) ? parseInt(data.decimals) : 1;
+        updateWeight();
+      });
+  </script>
+</body>
+</html>

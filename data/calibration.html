@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WeighMyBru</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'orange-darker': '#197C28',
+            'orange-darkest': '#197C28',
+            'black-discord' : '#121214',
+            'black-hover' : '#1D1D1E',
+            'black-select' : '#363638',
+            'black-background' : '#1A1A1E',
+            'button-green': '#197C28'
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.css">
+</head>
+<body class="bg-black-background text-white">
+
+<div class="md:flex flex-col md:flex-row md:min-h-screen w-full font-light">
+  <div @click.away="open = false" class="flex flex-col w-full md:w-64 text-gray-700 bg-black-discord dark-mode:text-gray-200 dark-mode:bg-gray-800 flex-shrink-0" x-data="{ open: false }">
+    <div class="flex-shrink-0 px-8 py-4 flex flex-row items-center justify-between">
+      <a href="#" class="text-lg font-semibold tracking-widest text-green-600 bg-black-discord uppercase rounded-lg dark-mode:text-white focus:outline-none focus:shadow-outline">WeighMyBru</a>
+      <button class="rounded-lg md:hidden focus:outline-none focus:shadow-outline" @click="open = !open">
+        <svg fill="currentColor" viewBox="0 0 20 20" class="w-6 h-6">
+          <path x-show="!open" fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM9 15a1 1 0 011-1h6a1 1 0 110 2h-6a1 1 0 01-1-1z" clip-rule="evenodd"></path>
+          <path x-show="open" fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+        </svg>
+      </button>
+    </div>
+    <nav :class="{'block': open, 'hidden': !open}" class="flex-grow md:block bg-black-discord px-4 pb-4 md:pb-0 md:overflow-y-auto">
+      <a class="block px-4 py-2 mt-2 text-sm font-semibold text-gray-400 bg-transparent rounded-lg hover:text-stone-50 focus:text-stone-50 hover:bg-black-hover focus:bg-black-select focus:outline-none focus:shadow-outline" href="/"><i class="fa fa-tachometer mr-2" aria-hidden="true" style="color: rgb(71, 168, 100);"></i>Dashboard</a>
+      <a class="block px-4 py-2 mt-2 text-sm font-semibold text-stone-50 bg-black-select rounded-lg dark-mode:bg-gray-700 dark-mode:hover:bg-black-discord dark-mode:focus:bg-black-select dark-mode:focus:text-stone-50 dark-mode:hover:text-stone-50 dark-mode:text-gray-500 hover:text-stone-50 focus:text-stone-50 hover:bg-black-hover focus:black-select focus:outline-none focus:shadow-outline" href="/calibration.html"><i class="fa fa-balance-scale mr-2" aria-hidden="true" style="color: rgb(71, 168, 100);"></i>Calibration</a>
+      <a class="block px-4 py-2 mt-2 text-sm font-semibold text-gray-400 bg-transparent rounded-lg hover:text-stone-50 focus:text-stone-50 hover:bg-black-hover focus:bg-black-select focus:outline-none focus:shadow-outline" href="/settings.html"><i class="fa fa-cogs mr-2" aria-hidden="true" style="color: rgb(71, 168, 100);"></i>Settings</a>
+      <a class="block px-4 py-2 mt-2 text-sm font-semibold text-gray-400 bg-transparent rounded-lg hover:text-stone-50 focus:text-stone-50 hover:bg-black-hover focus:bg-black-select focus:outline-none focus:shadow-outline" href="/updates.html"><i class="fa fa-upload mr-2" aria-hidden="true" style="color: rgb(71, 168, 100);"></i>Updates</a>
+    </nav>
+  </div>
+  <main class="flex-grow overflow-y-auto p-8">
+    <h1 class="text-3xl text-white font-bold mb-4">Calibration</h1>
+    <div class="bg-black-select p-6 rounded shadow max-w-xl">
+      <div id="message" class="text-green-400 mb-2"></div>
+      <p id="status" class="text-red-400 mb-4"></p>
+      <div id="calibDisplay" class="mb-6">
+        <strong>Current Calibration Factor:</strong> <span id="currentCalib">Loading...</span>
+      </div>
+      <div id="step1" class="mb-6">
+        <h2 class="text-2xl font-semibold mb-2">Step 1: Tare the Scale</h2>
+        <button id="tareBtn" class="bg-gray-600 hover:bg-button-green active:bg-green-900 text-white px-4 py-2 rounded">Tare</button>
+      </div>
+      <div id="step2" class="hidden mb-6">
+        <h2 class="text-2xl font-semibold mb-2">Step 2: Place Known Weight</h2>
+        <form id="calibrateForm">
+          <label for="knownWeight" class="block mb-2">Enter known weight (grams):</label>
+          <input type="number" id="knownWeight" name="knownWeight" required step="any" min="0.01" class="w-full px-3 py-2 mb-4 rounded text-black" />
+          <button type="submit" class="bg-gray-600 hover:bg-button-green active:bg-green-900 text-white px-4 py-2 rounded">Calibrate</button>
+        </form>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+    const tareBtn = document.getElementById("tareBtn");
+    const step1 = document.getElementById("step1");
+    const step2 = document.getElementById("step2");
+    const status = document.getElementById("status");
+    const message = document.getElementById("message");
+    const calibrateForm = document.getElementById("calibrateForm");
+
+    tareBtn.addEventListener("click", async () => {
+      status.textContent = "Taring...";
+      const response = await fetch("/api/tare", { method: "POST" });
+      const result = await response.text();
+      status.textContent = result;
+      if (result.toLowerCase().includes("tared")) {
+        step1.classList.add("hidden");
+        step2.classList.remove("hidden");
+      }
+    });
+
+    calibrateForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const knownWeight = document.getElementById("knownWeight").value;
+      status.textContent = "Calibrating...";
+      const params = new URLSearchParams();
+      params.append('knownWeight', knownWeight);
+      const response = await fetch("/api/calibrate", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: params.toString()
+      });
+      const result = await response.text();
+      status.textContent = result;
+    });
+
+    // Fetch current calibration factor
+    fetch('/api/calibrationfactor')
+      .then(response => response.text())
+      .then((data) => {
+        document.getElementById('currentCalib').textContent = data;
+      });
+</script>
+</body>
+</html>
