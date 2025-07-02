@@ -19,9 +19,12 @@ void Scale::tare(uint8_t times) {
 }
 
 void Scale::set_scale(float factor) {
-    calibrationFactor = factor;
-    hx711.set_scale(calibrationFactor);
-    saveCalibration();
+    // Only save if the calibration factor actually changed
+    if (calibrationFactor != factor) {
+        calibrationFactor = factor;
+        hx711.set_scale(calibrationFactor);
+        saveCalibration();
+    }
 }
 
 void Scale::saveCalibration() {

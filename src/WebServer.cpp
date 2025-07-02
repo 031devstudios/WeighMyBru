@@ -10,29 +10,147 @@
 
 Preferences preferences;
 
-// No duplicate function definitions here; only use those from WiFiManager.cpp
+// Cache for display settings to avoid repeated slow EEPROM reads
+static int cachedDecimals = -1; // -1 indicates not cached yet
+static unsigned long lastDecimalCacheTime = 0;
+const unsigned long DECIMAL_CACHE_TIMEOUT = 300000; // 5 minutes cache timeout
+
+int getCachedDecimals() {
+    // Fast path - return immediately if already cached and recent
+    if (cachedDecimals != -1 && (millis() - lastDecimalCacheTime < DECIMAL_CACHE_TIMEOUT)) {
+        return cachedDecimals;
+    }
+    
+    unsigned long startTime = millis();
+    
+    if (preferences.begin("display", false)) {
+        cachedDecimals = preferences.getInt("decimals", 1);
+        preferences.end();
+        lastDecimalCacheTime = millis();
+        Serial.printf("Display: OK in %lums\n", millis() - startTime);
+    } else {
+        cachedDecimals = 1; // Use default
+        lastDecimalCacheTime = millis();
+        Serial.println("Display: FAIL");
+    }
+    
+    return cachedDecimals;
+}
+
+void setCachedDecimals(int decimals) {
+    Serial.println("Saving decimal setting...");
+    unsigned long startTime = millis();
+    
+    if (preferences.begin("display", false)) {
+        preferences.putInt("decimals", decimals);
+        preferences.end();
+        cachedDecimals = decimals; // Update cache
+        lastDecimalCacheTime = millis();
+        Serial.printf("Decimal setting saved in %lu ms\n", millis() - startTime);
+    } else {
+        Serial.println("ERROR: Failed to save decimal setting to EEPROM");
+    }
+}
+
+void diagnoseEEPROMPerformance() {
+    Serial.println("=== EEPROM Performance Diagnostics ===");
+    
+    // Test WiFi preferences
+    unsigned long startTime = millis();
+    Preferences testPrefs;
+    if (testPrefs.begin("test", false)) {
+        testPrefs.putInt("testkey", 42);
+        int val = testPrefs.getInt("testkey", 0);
+        testPrefs.end();
+        Serial.printf("EEPROM test write/read took: %lu ms\n", millis() - startTime);
+    } else {
+        Serial.println("ERROR: Cannot open test preferences namespace");
+    }
+    
+    // Test existing namespaces
+    startTime = millis();
+    if (testPrefs.begin("wifi", true)) {
+        String ssid = testPrefs.getString("ssid", "");
+        testPrefs.end();
+        Serial.printf("WiFi namespace read took: %lu ms\n", millis() - startTime);
+    } else {
+        Serial.println("ERROR: Cannot open wifi preferences namespace");
+    }
+    
+    startTime = millis();
+    if (testPrefs.begin("display", true)) {
+        int decimals = testPrefs.getInt("decimals", 1);
+        testPrefs.end();
+        Serial.printf("Display namespace read took: %lu ms\n", millis() - startTime);
+    } else {
+        Serial.println("ERROR: Cannot open display preferences namespace");
+    }
+    
+    Serial.println("=== End Diagnostics ===");
+}
 
 AsyncWebServer server(80);
+
+/*
+ * API Endpoints for External Brewing Systems (e.g., GaggiMate):
+ * 
+ * Ultra-fast weight reading (minimal latency):
+ * GET /api/brew/weight
+ * Response: "45.2" (weight in grams, 1 decimal)
+ * 
+ * Fast brewing status:
+ * GET /api/brew/status  
+ * Response: {"w":45.2,"f":2.1} (weight and flowrate)
+ * 
+ * Standard dashboard:
+ * GET /api/dashboard
+ * Response: {"weight":45.23,"flowrate":2.15}
+ */
 
 void setupWebServer(Scale &scale, FlowRate &flowRate, BluetoothScale &bluetoothScale) {
   if (!LittleFS.begin()) {
     return;
   }
 
-  // Pre-initialize preferences namespaces to speed up first-time access
-  preferences.begin("display", false);
-  preferences.getInt("decimals", 1); // Touch the namespace to initialize it
-  preferences.end();
-  
-  // Pre-initialize WiFi preferences namespace
-  Preferences wifiPrefs;
-  wifiPrefs.begin("wifi", false);
-  wifiPrefs.getString("ssid", ""); // Touch the namespace to initialize it
-  wifiPrefs.end();
+  // Run EEPROM diagnostics
+  diagnoseEEPROMPerformance();
+
+  // Pre-cache settings to avoid delays on first page load
+  Serial.println("Pre-caching settings for faster page loads...");
+  getCachedDecimals();        // This will cache the decimal setting
+  getStoredSSID();            // This will cache WiFi credentials
 
   // Register API route first
+  server.on("/api/dashboard", HTTP_GET, [&scale, &flowRate](AsyncWebServerRequest *request) {
+    String json = "{";
+    json += "\"weight\":" + String(scale.getCurrentWeight(), 2) + ",";
+    json += "\"flowrate\":" + String(flowRate.getFlowRate(), 1);
+    json += "}";
+    request->send(200, "application/json", json);
+  });
+
   server.on("/api/weight", HTTP_GET, [&scale](AsyncWebServerRequest *request) {
     request->send(200, "text/plain", String(scale.getCurrentWeight()));
+  });
+
+  // Lightweight weight-only endpoint for brewing applications
+  server.on("/api/weight-fast", HTTP_GET, [&scale](AsyncWebServerRequest *request) {
+    // Minimal processing for fastest response
+    request->send(200, "text/plain", String(scale.getCurrentWeight(), 2));
+  });
+
+  // Brewing mode endpoints for external devices like GaggiMate
+  server.on("/api/brew/weight", HTTP_GET, [&scale](AsyncWebServerRequest *request) {
+    // Ultra-fast response for brewing systems
+    float weight = scale.getCurrentWeight();
+    request->send(200, "text/plain", String(weight, 1)); // 1 decimal for speed
+  });
+  
+  server.on("/api/brew/status", HTTP_GET, [&scale, &flowRate](AsyncWebServerRequest *request) {
+    // Minimal JSON for brewing systems
+    String json = "{\"w\":" + String(scale.getCurrentWeight(), 1) + 
+                  ",\"f\":" + String(flowRate.getFlowRate(), 1) + "}";
+    request->send(200, "application/json", json);
   });
 
   server.on("/api/tare", HTTP_POST, [&scale](AsyncWebServerRequest *request){
@@ -94,9 +212,7 @@ void setupWebServer(Scale &scale, FlowRate &flowRate, BluetoothScale &bluetoothS
   });
 
   server.on("/api/decimal-setting", HTTP_GET, [](AsyncWebServerRequest *request) {
-    preferences.begin("display", false); // Use false to create namespace if it doesn't exist
-    int decimals = preferences.getInt("decimals", 1);
-    preferences.end();
+    int decimals = getCachedDecimals();
     String json = "{\"decimals\":" + String(decimals) + "}";
     request->send(200, "application/json", json);
   });
@@ -106,9 +222,7 @@ void setupWebServer(Scale &scale, FlowRate &flowRate, BluetoothScale &bluetoothS
       int decimals = request->getParam("decimals", true)->value().toInt();
       if (decimals < 0) decimals = 0;
       if (decimals > 2) decimals = 2;
-      preferences.begin("display", false);
-      preferences.putInt("decimals", decimals);
-      preferences.end();
+      setCachedDecimals(decimals);
       request->send(200, "text/plain", "Decimal setting saved.");
     } else {
       request->send(400, "text/plain", "Missing decimals parameter");
@@ -129,14 +243,12 @@ void setupWebServer(Scale &scale, FlowRate &flowRate, BluetoothScale &bluetoothS
 
   // Combined settings endpoint for faster loading
   server.on("/api/settings", HTTP_GET, [](AsyncWebServerRequest *request) {
-    // Get WiFi credentials
+    // Get WiFi credentials (from cache)
     String ssid = getStoredSSID();
     String password = getStoredPassword();
     
-    // Get decimal setting
-    preferences.begin("display", false);
-    int decimals = preferences.getInt("decimals", 1);
-    preferences.end();
+    // Get decimal setting (from cache)
+    int decimals = getCachedDecimals();
     
     // Combine into single JSON response
     String json = "{";
@@ -146,6 +258,35 @@ void setupWebServer(Scale &scale, FlowRate &flowRate, BluetoothScale &bluetoothS
     json += "}";
     
     request->send(200, "application/json", json);
+  });
+
+  // Emergency NVS reset endpoint (use with caution)
+  server.on("/api/reset-nvs", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("confirm", true) && request->getParam("confirm", true)->value() == "yes") {
+      Serial.println("Resetting NVS storage...");
+      
+      // Clear all preferences
+      Preferences clearPrefs;
+      clearPrefs.begin("wifi", false);
+      clearPrefs.clear();
+      clearPrefs.end();
+      
+      clearPrefs.begin("display", false);
+      clearPrefs.clear();
+      clearPrefs.end();
+      
+      clearPrefs.begin("scale", false);
+      clearPrefs.clear();
+      clearPrefs.end();
+      
+      request->send(200, "text/plain", "NVS storage reset. Device will restart in 3 seconds.");
+      
+      // Restart the ESP32 after a short delay
+      delay(3000);
+      ESP.restart();
+    } else {
+      request->send(400, "text/plain", "Missing confirmation parameter. Use 'confirm=yes' to reset NVS.");
+    }
   });
 
   // Serve static files for non-API paths

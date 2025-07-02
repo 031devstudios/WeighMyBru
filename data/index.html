@@ -50,8 +50,11 @@
     <div class="bg-black-select p-6 rounded shadow max-w-md">
       <p class="text-xl mb-4">Weight: <span id="weight" class="font-bold">0.0</span> g</p>
       <p class="text-xl mb-4">Flow Rate: <span id="flowrate" class="font-bold">0.000</span> g/s</p>
-      <button onclick="tareScale()" class="bg-gray-600 hover:bg-button-green active:bg-green-900 text-white px-4 py-2 rounded">Tare</button>
-      </button>
+      <div class="mb-4">
+        <button onclick="tareScale()" class="bg-gray-600 hover:bg-button-green active:bg-green-900 text-white px-4 py-2 rounded mr-2">Tare</button>
+        <button id="brewModeBtn" onclick="toggleBrewMode()" class="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-4 py-2 rounded">Brew Mode</button>
+      </div>
+      <div id="updateStatus" class="text-sm text-gray-400"></div>
     </div>
   </main>
 </div>
@@ -67,28 +70,91 @@
   }
 
   function updateWeight() {
-    fetch('/api/weight')
-      .then(response => response.text())
+    // Use combined endpoint for better performance
+    fetch('/api/dashboard')
+      .then(response => response.json())
       .then(data => {
-        let num = parseFloat(data);
-        if (isNaN(num)) num = 0;
-        document.getElementById('weight').innerText = num.toFixed(decimalPlaces);
+        let weight = parseFloat(data.weight);
+        let flowrate = parseFloat(data.flowrate);
+        
+        if (isNaN(weight)) weight = 0;
+        if (isNaN(flowrate)) flowrate = 0;
+        
+        document.getElementById('weight').innerText = weight.toFixed(decimalPlaces);
+        document.getElementById('flowrate').innerText = flowrate.toFixed(1);
       })
-      .catch(err => console.error("Fetch error:", err));
-    // Fetch flow rate
-    fetch('/api/flowrate')
-      .then(response => response.text())
-      .then(data => {
-        let num = parseFloat(data);
-        if (isNaN(num)) num = 0;
-        document.getElementById('flowrate').innerText = num.toFixed(1);
-      })
-      .catch(err => console.error("Flowrate fetch error:", err));
+      .catch(err => console.error("Dashboard fetch error:", err));
   }
 
-  setInterval(updateWeight, 10);
+  let updateInterval = 100; // Start with 100ms (10x per second)
+  let lastWeight = 0;
+  let isBrewingActive = false;
+  let manualBrewMode = false;
+  
+  function toggleBrewMode() {
+    manualBrewMode = !manualBrewMode;
+    const btn = document.getElementById('brewModeBtn');
+    const status = document.getElementById('updateStatus');
+    
+    if (manualBrewMode) {
+      btn.textContent = 'Exit Brew Mode';
+      btn.className = 'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-4 py-2 rounded';
+      status.textContent = 'Manual Brew Mode: Fast Updates (20/sec)';
+      clearInterval(updateTimer);
+      updateTimer = setInterval(updateWeight, 50); // 20x per second
+    } else {
+      btn.textContent = 'Brew Mode';
+      btn.className = 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-4 py-2 rounded';
+      status.textContent = 'Auto Mode: Smart Updates';
+      clearInterval(updateTimer);
+      updateTimer = setInterval(updateWeight, 200); // Back to normal
+      isBrewingActive = false;
+    }
+  }
+  
+  function smartUpdate() {
+    // Skip auto detection if manual mode is active
+    if (manualBrewMode) return;
+    
+    // Check if brewing is likely active (weight changing rapidly)
+    fetch('/api/weight-fast') // Use fast endpoint for detection
+      .then(response => response.text())
+      .then(data => {
+        let currentWeight = parseFloat(data);
+        let weightChange = Math.abs(currentWeight - lastWeight);
+        
+        // If weight is changing fast (more than 0.5g in 100ms), we're likely brewing
+        if (weightChange > 0.5) {
+          if (!isBrewingActive) {
+            isBrewingActive = true;
+            document.getElementById('updateStatus').textContent = 'Auto Brew Detected: Fast Updates (20/sec)';
+            clearInterval(updateTimer);
+            updateTimer = setInterval(updateWeight, 50); // 20x per second during brewing
+          }
+        } else {
+          if (isBrewingActive) {
+            isBrewingActive = false;
+            document.getElementById('updateStatus').textContent = 'Auto Mode: Normal Updates (5/sec)';
+            clearInterval(updateTimer);
+            updateTimer = setInterval(updateWeight, 200); // 5x per second when idle
+          }
+        }
+        
+        lastWeight = currentWeight;
+        updateWeight(); // Always update the display
+      })
+      .catch(err => console.error("Smart update error:", err));
+  }
+
+  // Start with normal updates, then use smart detection
+  let updateTimer = setInterval(updateWeight, 200); // Initial 200ms (5/sec)
+  document.getElementById('updateStatus').textContent = 'Auto Mode: Normal Updates (5/sec)';
+  
+  // Run smart detection every 200ms to adjust update frequency
+  setInterval(smartUpdate, 200);
   updateWeight();
 
+  // Load decimal setting once (no need to poll this frequently)
   fetch('/api/decimal-setting')
     .then(response => response.json())
     .then(data => {
@@ -97,6 +163,10 @@
       } else {
         decimalPlaces = 1;
       }
+    })
+    .catch(err => {
+      console.error("Decimal setting fetch error:", err);
+      decimalPlaces = 1; // fallback
     });
 </script>
 
