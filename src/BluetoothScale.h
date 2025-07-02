@@ -48,7 +48,7 @@ private:
     static const uint8_t PRODUCT_NUMBER = 0x03;
     static const size_t PROTOCOL_LENGTH = 20;
     static const uint32_t HEARTBEAT_INTERVAL = 2000; // 2 seconds
-    static const uint32_t WEIGHT_SEND_INTERVAL = 100; // 100ms
+    static const uint32_t WEIGHT_SEND_INTERVAL = 50; // 50ms (20 updates/sec) - faster for GaggiMate
     
     // WeighMyBru UUIDs - unique to avoid conflicts with Bookoo scales
     static const char* SERVICE_UUID;

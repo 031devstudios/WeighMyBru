@@ -113,14 +113,13 @@ void BluetoothScale::update() {
     }
     
     if (deviceConnected) {
-        // Send weight updates
+        // Send weight updates - faster for GaggiMate brewing applications
         if (scale && (now - lastWeightSent >= WEIGHT_SEND_INTERVAL)) {
             float currentWeight = scale->getCurrentWeight();
-            if (abs(currentWeight - lastWeight) > 0.01f || (now - lastWeightSent >= 1000)) {
-                sendWeightNotification(currentWeight);
-                lastWeight = currentWeight;
-                lastWeightSent = now;
-            }
+            // Send all weight updates for real-time brewing feedback
+            sendWeightNotification(currentWeight);
+            lastWeight = currentWeight;
+            lastWeightSent = now;
         }
         
         // Send heartbeat

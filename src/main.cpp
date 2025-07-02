@@ -30,11 +30,7 @@ void setup() {
 }
 
 void loop() {
-  static unsigned long lastDebugTime = 0;
-  static unsigned long loopCount = 0;
   static unsigned long lastWeightUpdate = 0;
-  
-  unsigned long loopStart = millis();
   
   // Update weight more frequently for brewing accuracy
   if (millis() - lastWeightUpdate >= 10) { // Update every 10ms
@@ -43,23 +39,8 @@ void loop() {
     lastWeightUpdate = millis();
   }
   
-  // Update Bluetooth scale (less critical timing)
+  // Update Bluetooth scale
   bluetoothScale.update();
-  
-  loopCount++;
-  
-  // Debug performance every 10 seconds (reduced frequency)
-  if (millis() - lastDebugTime > 10000) {
-    unsigned long avgLoopTime = (millis() - lastDebugTime) / loopCount;
-    Serial.printf("Loop: %lu loops, avg %lu ms/loop\n", loopCount, avgLoopTime);
-    lastDebugTime = millis();
-    loopCount = 0;
-  }
-  
-  unsigned long loopDuration = millis() - loopStart;
-  if (loopDuration > 50) { // Warn if loop takes more than 50ms
-    Serial.printf("SLOW LOOP: %lu ms\n", loopDuration);
-  }
   
   // Shorter delay for more responsive weight readings
   delay(5); // Reduced from 100ms to 5ms for brewing responsiveness
