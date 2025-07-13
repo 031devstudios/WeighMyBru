@@ -1,5 +1,5 @@
 
-![Logo](https://raw.githubusercontent.com/031devstudios/WeighMyBru/master/docs/assets/logo.png)
+![Logo](<img src="docs/assets/dashboard.png" alt="WeighMyBru Dashboard" width="500" height="500"/>)
 
 
 ## The smart espresso scale you've been looking for!
