@@ -38,3 +38,12 @@ Installation instructions will be updated soon.
   this project requires VSCode with PlatformIO extension installed
 ```
 
+## Bill Of Materials (BOM)
+
+| Qty | Item | 
+| ----------- | ----------- |  
+| 2 | 500g Mini Loadcell (I-shaped) |  
+| 1 | HX711 |
+| 1 | ESP32-S3-WROOM Dev Board |
+| 1 | USB-C Breakout Panel Mount |
+| 1 | Various Wires |
