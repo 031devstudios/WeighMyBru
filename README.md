@@ -1,10 +1,8 @@
 <p align="center">
 <img src="docs/assets/logo.png" alt="WeighMyBru Dashboard" width="500" height="745"/>
-<br />
+<br/>
 
-<div align="center">
-## The smart espresso scale you've been looking for!
-</div>
+<p align="center">  <b>The smart espresso scale you've been looking for!</b></p>
 
 [![](https://dcbadge.limes.pink/api/server/HYp4TSEjSf)](https://discord.gg/HYp4TSEjSf)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg?style=for-the-badge)](LICENSE)
