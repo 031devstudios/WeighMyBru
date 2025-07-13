@@ -11,6 +11,7 @@
 This project is a headless scale at the moment with a webserver hosted on the ESP32-S3.
 This scale was designed to be used in conjunction with GaggiMate.
 <br>
+<br>
 <img src="docs/assets/dashboard.png" alt="WeighMyBru Dashboard" width="500" />
 
 
