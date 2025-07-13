@@ -1,6 +1,6 @@
 <p align="center">
 <img src="docs/assets/logo.png" alt="WeighMyBru Dashboard" width="500" height="745"/>
-<br/>
+</p>
 
 <p align="center">  <b>The smart espresso scale you've been looking for!</b></p>
 
