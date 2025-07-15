@@ -18,7 +18,7 @@ This scale was designed to be used in conjunction with GaggiMate.
 
 The documentation is currently being worked on. 
 
-[WeighMyBru Docs)](https://github.com/031devstudios/weighmybru-docs)
+[WeighMyBru Docs](https://github.com/031devstudios/weighmybru-docs)
 
 ## Features
 
