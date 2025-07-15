@@ -14,6 +14,11 @@ This scale was designed to be used in conjunction with GaggiMate.
 <br>
 <img src="docs/assets/dashboard.png" alt="WeighMyBru Dashboard" width="500" />
 
+## Documentation
+
+The documentation is currently being worked on. 
+
+[WeighMyBru Docs)](https://github.com/031devstudios/weighmybru-docs)
 
 ## Features
 
@@ -25,10 +30,9 @@ This scale was designed to be used in conjunction with GaggiMate.
 
 ## GaggiMate
 
-At the moment, the current GaggiMate does not support WeighMyBru scale. I am still waiting on the PR to be merged with the origianl repo. Below is the link to the fork that supports WeighMyBru scale. It's up to date with the following commit `6a2241c`
-I will make sure I keep it updated constantly.
+GaggiMate now fully supports WeighMyBru scale.
 
-[GaggiMate (WeighMyBru version)](https://github.com/031devstudios/gaggimate)
+[GaggiMate)](https://github.com/jniebuhr/gaggimate)
 
 ## Installation
 
