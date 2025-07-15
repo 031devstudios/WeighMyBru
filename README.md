@@ -32,7 +32,7 @@ The documentation is currently being worked on.
 
 GaggiMate now fully supports WeighMyBru scale.
 
-[GaggiMate)](https://github.com/jniebuhr/gaggimate)
+[GaggiMate](https://github.com/jniebuhr/gaggimate)
 
 ## Installation
 
